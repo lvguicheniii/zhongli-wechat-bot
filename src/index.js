@@ -79,6 +79,24 @@ async function startWechat(type) {
   startWechatBot({ serviceType })
 }
 
+async function startLark(type) {
+  const serviceType = type || env.SERVICE_TYPE || 'pi'
+  if (!serveList.find((item) => item.value === serviceType)) {
+    console.log('服务类型错误，目前支持：' + serveList.map((item) => item.value).join(' | '))
+    return
+  }
+
+  const missing = getMissingConfig(serviceType)
+  if (missing.length) {
+    console.log(`请先配置 .env 文件中的 ${missing.join('，')}`)
+    return
+  }
+
+  console.log('service type:', serviceType)
+  const { startLarkAgent } = await import('./platforms/lark/agent.js')
+  startLarkAgent({ serviceType })
+}
+
 async function promptAndStart() {
   if (env.SERVICE_TYPE) {
     await startWechat(env.SERVICE_TYPE)
@@ -133,15 +151,20 @@ program
 program
   .command('agent')
   .description('启动外部 IM 通道，并使用指定 agent 处理消息')
-  .option('--im <channel>', '外部通信渠道：wechat', 'wechat')
+  .option('--im <channel>', '外部通信渠道：wechat | lark', 'wechat')
   .option('--agent <agent>', '消息处理 agent：pi 或其他 serve 类型', 'pi')
   .action(async (options) => {
-    if (options.im !== 'wechat') {
-      console.log('当前 agent 命令只支持 --im wechat。飞书可先使用 wb lark login/send/messages/search。')
+    if (options.im === 'wechat') {
+      await startWechat(options.agent)
       return
     }
 
-    await startWechat(options.agent)
+    if (options.im === 'lark') {
+      await startLark(options.agent)
+      return
+    }
+
+    console.log('IM 通道错误，目前支持：wechat | lark')
   })
 
 program
@@ -167,6 +190,14 @@ program
   })
 
 const lark = program.command('lark').description('飞书 IM 登录、发消息和读取消息')
+
+lark
+  .command('agent')
+  .description('启动飞书 IM 事件通道，并使用指定 agent 自动回复')
+  .option('--agent <agent>', '消息处理 agent：pi 或其他 serve 类型', 'pi')
+  .action(async (options) => {
+    await startLark(options.agent)
+  })
 
 lark
   .command('login')

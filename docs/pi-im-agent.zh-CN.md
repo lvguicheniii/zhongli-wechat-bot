@@ -13,9 +13,9 @@
 当前已实现：
 
 - 微信 IM：扫码登录后接收/回复消息。
-- Pi agent：作为 `serve` 类型处理微信消息。
+- Pi agent：作为 `serve` 类型处理微信和飞书消息。
 - 本地微信数据：通过 OpenCLI `wx-cli` 访问聊天、群成员、统计和朋友圈缓存。
-- 飞书 IM：通过 `lark-cli` 登录、发消息、读消息、搜索消息。
+- 飞书 IM：通过 `lark-cli` 登录、发消息、读消息、搜索消息和消费消息事件。
 
 ## 安装命令
 
@@ -145,7 +145,7 @@ wb wx help
 
 ## 飞书 IM
 
-飞书当前是 CLI 控制通道，可登录、读写和搜索消息：
+飞书可登录、读写、搜索消息，也可以启动事件驱动 agent：
 
 ```sh
 wb lark login --no-wait
@@ -157,7 +157,31 @@ wb lark send --chat-id oc_xxx --text "hello"
 
 `--no-wait` 会返回 device-flow 授权链接/扫码信息。你完成授权后，再运行读写命令。
 
-当前飞书还不是实时事件通道；也就是说，飞书消息不会自动推给 Pi 回复。后续要实现飞书实时 agent，需要接入 Lark event consume，再把收到的消息转给 Pi。
+要让 Pi 回复飞书消息，配置事件 agent：
+
+```env
+LARK_AGENT_IDENTITY='bot'
+LARK_AGENT_EVENT_KEY='im.message.receive_v1'
+LARK_AGENT_CHAT_TYPES='p2p,group'
+LARK_AGENT_MESSAGE_TYPES='text,post'
+LARK_AGENT_CHAT_WHITELIST=''
+LARK_AGENT_USER_WHITELIST=''
+LARK_AGENT_REPLY_PREFIX=''
+LARK_AGENT_GROUP_MENTION_NAME=''
+LARK_AGENT_GROUP_AUTO_REPLY='false'
+```
+
+启动：
+
+```sh
+wb agent --im lark --agent pi
+# 或
+wb lark agent --agent pi
+```
+
+飞书 agent 通过 `lark-cli event consume` 消费 `im.message.receive_v1`。私聊默认回复；如果配置 chat 或 user 白名单，则只回复白名单。群聊需要配置 `LARK_AGENT_CHAT_WHITELIST`，并命中回复前缀、群提及名，或显式设置 `LARK_AGENT_GROUP_AUTO_REPLY=true`。
+
+使用这条链路前，需要在飞书开发者后台启用 `im.message.receive_v1` 事件，并确认应用已开通所需 IM 权限。
 
 ## Pi 透传命令
 

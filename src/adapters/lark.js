@@ -39,7 +39,34 @@ export async function larkSendText(options = {}) {
     throw new Error('larkSendText requires chatId or userId')
   }
 
+  if (options.idempotencyKey) args.push('--idempotency-key', options.idempotencyKey)
+  if (options.format) args.push('--format', options.format)
+
   return streamCommand(getLarkBin(), args)
+}
+
+export async function larkSendTextRaw(options = {}) {
+  const identity = options.as || getLarkRuntimeConfig().defaultIdentity
+  const args = ['im', '+messages-send', '--as', identity, '--text', options.text || '', '--format', options.format || 'json']
+
+  if (options.chatId) {
+    args.push('--chat-id', options.chatId)
+  } else if (options.userId) {
+    args.push('--user-id', options.userId)
+  } else {
+    throw new Error('larkSendTextRaw requires chatId or userId')
+  }
+
+  if (options.idempotencyKey) args.push('--idempotency-key', options.idempotencyKey)
+
+  const result = await runCommand(getLarkBin(), args, { echo: options.echo === true })
+  if (result.code !== 0) {
+    const error = new Error(`${getLarkBin()} exited with code ${result.code}`)
+    error.result = result
+    throw error
+  }
+
+  return result
 }
 
 export async function larkListMessages(options = {}) {

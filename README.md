@@ -4,20 +4,20 @@ English | [Simplified Chinese](./README.zh-CN.md)
 
 A WeChat / IM agent project based on `Wechaty`.
 
-It can route IM messages received after WeChat QR-code login to ChatGPT, DeepSeek, Ollama, Claude, Pi, and other services. It can also use OpenCLI `wx-cli` to access local WeChat chats, contacts, group members, favorites, and Moments cache, then run statistics or AI analysis for a group chat or a specific friend. Lark IM currently provides CLI channels for login, reading messages, searching messages, and sending messages.
+It can route IM messages received from WeChat QR-code login or Lark IM events to ChatGPT, DeepSeek, Ollama, Claude, Pi, and other services. It can also use OpenCLI `wx-cli` to access local WeChat chats, contacts, group members, favorites, and Moments cache, then run statistics or AI analysis for a group chat or a specific friend. Lark IM provides CLI channels for login, reading messages, searching messages, sending messages, and event-driven agent replies.
 
-If you want to use Pi as the project agent and WeChat as the external communication channel, start with [Pi Agent + IM Guide](./docs/pi-im-agent.md).
+If you want to use Pi as the project agent and WeChat or Lark as the external communication channel, start with [Pi Agent + IM Guide](./docs/pi-im-agent.md).
 
 ## Feature Overview
 
 | Feature | Command entry | Status |
 | --- | --- | --- |
 | WeChat QR-code IM | `wb agent --im wechat --agent pi` / `wb start --serve pi` | Available. Logs in by QR code and replies to allowlisted messages |
-| Pi as project agent | `wb agent --im wechat --agent pi` | Available. Single-turn non-interactive replies by default |
+| Pi as project agent | `wb agent --im wechat --agent pi` / `wb agent --im lark --agent pi` | Available. Single-turn non-interactive replies by default |
 | Local WeChat chats / contacts / group members | `wb wx sessions`, `wb wx history`, `wb wx members` | Integrated through OpenCLI `wx-cli` |
 | Local Moments cache | `wb wx sns-feed`, `wb wx sns-search` | Integrated through OpenCLI `wx-cli` |
 | Group / friend analysis | `wb analyze --room "Group name"`, `wb analyze --friend "Friend alias"` | Supports local statistics and AI deep analysis |
-| Lark IM | `wb lark login`, `wb lark messages`, `wb lark send` | Supports login, read, search, and send. Real-time auto-reply events are not enabled yet |
+| Lark IM | `wb lark login`, `wb lark messages`, `wb lark send`, `wb lark agent` | Supports login, read, search, send, and event-driven auto-replies |
 | Multi-model replies | `--serve ChatGPT/deepseek/ollama/pi/...` | Reuses the existing provider mechanism |
 
 ## Quick Start: Pi + WeChat IM
@@ -86,7 +86,7 @@ If you want automatic WeChat replies or `wb analyze` deep analysis, choose a `--
 
 - pi
 
-  Pi is suitable as the project agent and can communicate through WeChat IM:
+  Pi is suitable as the project agent and can communicate through WeChat or Lark IM:
 
   ```env
   PI_BIN='pi'
@@ -368,7 +368,31 @@ wb lark search --query "keyword"
 wb lark send --chat-id oc_xxx --text "hello"
 ```
 
-Lark is currently a CLI control channel. It supports login, reading messages, searching messages, and sending messages. It is not yet a real-time event channel, so Lark messages are not automatically pushed to Pi for replies.
+To let Pi or another provider reply to Lark messages through the event stream, configure:
+
+```env
+LARK_AGENT_IDENTITY='bot'
+LARK_AGENT_EVENT_KEY='im.message.receive_v1'
+LARK_AGENT_CHAT_TYPES='p2p,group'
+LARK_AGENT_MESSAGE_TYPES='text,post'
+LARK_AGENT_CHAT_WHITELIST=''
+LARK_AGENT_USER_WHITELIST=''
+LARK_AGENT_REPLY_PREFIX=''
+LARK_AGENT_GROUP_MENTION_NAME=''
+LARK_AGENT_GROUP_AUTO_REPLY='false'
+```
+
+Then start:
+
+```sh
+wb agent --im lark --agent pi
+# or
+wb lark agent --agent pi
+```
+
+The Lark event path uses `lark-cli event consume im.message.receive_v1 --as bot`. Private chats are replied to by default unless you set a chat or user allowlist. Group chats require `LARK_AGENT_CHAT_WHITELIST` and one of these triggers: `LARK_AGENT_REPLY_PREFIX`, `LARK_AGENT_GROUP_MENTION_NAME`, or `LARK_AGENT_GROUP_AUTO_REPLY=true`.
+
+Before using event replies, make sure the Lark app has enabled the `im.message.receive_v1` event in the developer console and has the required IM scopes.
 
 ### 7. Pi / OpenCLI Passthrough
 
@@ -478,6 +502,7 @@ First check the following:
 - Configure `.env`, especially `BOT_NAME`, allowlists, and parameters required by the current `--serve` service.
 - Run `npm run test:analysis` to verify the local analysis module. Run `node ./cli.js --help` to verify the CLI.
 - Run `wb agent --im wechat --agent pi` or `wb start --serve <service>` to start WeChat QR-code login.
+- Run `wb agent --im lark --agent pi` or `wb lark agent --agent pi` to start Lark event-based replies.
 
 You can also refer to this [issue](https://github.com/wangrongding/wechat-bot/issues/54#issuecomment-1347880291).
 

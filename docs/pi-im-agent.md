@@ -13,9 +13,9 @@ External IM message -> wechat-bot -> Pi agent -> IM reply
 Currently implemented:
 
 - WeChat IM: receive and reply to messages after QR-code login.
-- Pi agent: handles WeChat messages as a `serve` type.
+- Pi agent: handles WeChat and Lark messages as a `serve` type.
 - Local WeChat data: access chats, group members, statistics, and Moments cache through OpenCLI `wx-cli`.
-- Lark IM: login, send messages, read messages, and search messages through `lark-cli`.
+- Lark IM: login, send messages, read messages, search messages, and consume message events through `lark-cli`.
 
 ## Installation Command
 
@@ -145,7 +145,7 @@ wb wx help
 
 ## Lark IM
 
-Lark is currently a CLI control channel. It can log in, read and write messages, and search messages:
+Lark can log in, read and write messages, search messages, and run an event-based agent:
 
 ```sh
 wb lark login --no-wait
@@ -157,7 +157,31 @@ wb lark send --chat-id oc_xxx --text "hello"
 
 `--no-wait` returns a device-flow authorization link / QR-code information. After you complete authorization, run the read/write commands.
 
-Lark is not yet a real-time event channel. That means Lark messages are not automatically pushed to Pi for replies. To implement a real-time Lark agent later, consume Lark events and forward received messages to Pi.
+To let Pi reply to Lark messages, configure the event agent:
+
+```env
+LARK_AGENT_IDENTITY='bot'
+LARK_AGENT_EVENT_KEY='im.message.receive_v1'
+LARK_AGENT_CHAT_TYPES='p2p,group'
+LARK_AGENT_MESSAGE_TYPES='text,post'
+LARK_AGENT_CHAT_WHITELIST=''
+LARK_AGENT_USER_WHITELIST=''
+LARK_AGENT_REPLY_PREFIX=''
+LARK_AGENT_GROUP_MENTION_NAME=''
+LARK_AGENT_GROUP_AUTO_REPLY='false'
+```
+
+Start:
+
+```sh
+wb agent --im lark --agent pi
+# or
+wb lark agent --agent pi
+```
+
+The Lark agent consumes `im.message.receive_v1` through `lark-cli event consume`. Private chats are replied to by default unless a chat or user allowlist is configured. Group chats require `LARK_AGENT_CHAT_WHITELIST` and one of these triggers: reply prefix, group mention name, or `LARK_AGENT_GROUP_AUTO_REPLY=true`.
+
+Before using this path, enable the `im.message.receive_v1` event in the Lark developer console and make sure the app has the required IM scopes.
 
 ## Pi Passthrough Commands
 

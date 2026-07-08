@@ -4,21 +4,21 @@
 
 一个基于 `Wechaty` 的微信 / IM agent 项目。
 
-它可以把微信扫码登录后的 IM 消息交给 ChatGPT、DeepSeek、Ollama、Claude、Pi 等服务处理；也可以通过 OpenCLI 的 `wx-cli` 访问本机微信聊天、联系人、群成员、收藏、朋友圈缓存，并对群聊或某个好友做统计和分析。飞书 IM 目前提供登录、读消息、搜消息和发消息的 CLI 通道。
+它可以把微信扫码登录或飞书 IM 事件收到的消息交给 ChatGPT、DeepSeek、Ollama、Claude、Pi 等服务处理；也可以通过 OpenCLI 的 `wx-cli` 访问本机微信聊天、联系人、群成员、收藏、朋友圈缓存，并对群聊或某个好友做统计和分析。飞书 IM 提供登录、读消息、搜消息、发消息和事件驱动 agent 回复通道。
 
-如果你希望把 Pi 作为本项目的 agent，用微信作为外部通信渠道，直接看：[Pi Agent + IM 使用说明](./docs/pi-im-agent.zh-CN.md)。
+如果你希望把 Pi 作为本项目的 agent，用微信或飞书作为外部通信渠道，直接看：[Pi Agent + IM 使用说明](./docs/pi-im-agent.zh-CN.md)。
 
 ## 能力概览
 
-| 能力                           | 命令入口                                                     | 当前状态                                     |
-| ------------------------------ | ------------------------------------------------------------ | -------------------------------------------- |
-| 微信扫码 IM                    | `wb agent --im wechat --agent pi` / `wb start --serve pi`    | 已接入，可扫码登录并回复白名单消息           |
-| Pi 作为项目 agent              | `wb agent --im wechat --agent pi`                            | 已接入，默认单轮非交互回复                   |
-| 本地微信聊天 / 联系人 / 群成员 | `wb wx sessions`、`wb wx history`、`wb wx members`           | 通过 OpenCLI `wx-cli` 接入                   |
-| 本地朋友圈缓存                 | `wb wx sns-feed`、`wb wx sns-search`                         | 通过 OpenCLI `wx-cli` 接入                   |
-| 群 / 好友分析                  | `wb analyze --room "群名"`、`wb analyze --friend "好友备注"` | 支持本地统计和 AI 深度分析                   |
-| 飞书 IM                        | `wb lark login`、`wb lark messages`、`wb lark send`          | 支持登录、读、搜、发；暂未做实时事件自动回复 |
-| 多模型回复                     | `--serve ChatGPT/deepseek/ollama/pi/...`                     | 复用现有 provider 机制                       |
+| 能力                           | 命令入口                                                             | 当前状态                               |
+| ------------------------------ | -------------------------------------------------------------------- | -------------------------------------- |
+| 微信扫码 IM                    | `wb agent --im wechat --agent pi` / `wb start --serve pi`            | 已接入，可扫码登录并回复白名单消息     |
+| Pi 作为项目 agent              | `wb agent --im wechat --agent pi` / `wb agent --im lark --agent pi`  | 已接入，默认单轮非交互回复             |
+| 本地微信聊天 / 联系人 / 群成员 | `wb wx sessions`、`wb wx history`、`wb wx members`                   | 通过 OpenCLI `wx-cli` 接入             |
+| 本地朋友圈缓存                 | `wb wx sns-feed`、`wb wx sns-search`                                 | 通过 OpenCLI `wx-cli` 接入             |
+| 群 / 好友分析                  | `wb analyze --room "群名"`、`wb analyze --friend "好友备注"`         | 支持本地统计和 AI 深度分析             |
+| 飞书 IM                        | `wb lark login`、`wb lark messages`、`wb lark send`、`wb lark agent` | 支持登录、读、搜、发和事件驱动自动回复 |
+| 多模型回复                     | `--serve ChatGPT/deepseek/ollama/pi/...`                             | 复用现有 provider 机制                 |
 
 ## 快速开始：Pi + 微信 IM
 
@@ -84,7 +84,7 @@ wb agent --im wechat --agent pi
 
 - pi
 
-  Pi 适合作为项目 agent 使用，可通过微信 IM 对外通信：
+  Pi 适合作为项目 agent 使用，可通过微信或飞书 IM 对外通信：
 
   ```env
   PI_BIN='pi'
@@ -367,7 +367,31 @@ wb lark search --query "关键词"
 wb lark send --chat-id oc_xxx --text "hello"
 ```
 
-当前飞书是 CLI 控制通道，支持登录、读消息、搜消息、发消息；还不是实时事件通道，因此飞书消息暂不会自动推给 Pi 回复。
+如果要让 Pi 或其他 provider 通过飞书事件流自动回复，配置：
+
+```env
+LARK_AGENT_IDENTITY='bot'
+LARK_AGENT_EVENT_KEY='im.message.receive_v1'
+LARK_AGENT_CHAT_TYPES='p2p,group'
+LARK_AGENT_MESSAGE_TYPES='text,post'
+LARK_AGENT_CHAT_WHITELIST=''
+LARK_AGENT_USER_WHITELIST=''
+LARK_AGENT_REPLY_PREFIX=''
+LARK_AGENT_GROUP_MENTION_NAME=''
+LARK_AGENT_GROUP_AUTO_REPLY='false'
+```
+
+启动：
+
+```sh
+wb agent --im lark --agent pi
+# 或
+wb lark agent --agent pi
+```
+
+飞书事件链路使用 `lark-cli event consume im.message.receive_v1 --as bot`。私聊默认回复；如果配置了 chat 或 user 白名单，则只回复白名单。群聊需要配置 `LARK_AGENT_CHAT_WHITELIST`，并命中 `LARK_AGENT_REPLY_PREFIX`、`LARK_AGENT_GROUP_MENTION_NAME` 或显式设置 `LARK_AGENT_GROUP_AUTO_REPLY=true`。
+
+使用事件回复前，请确认飞书应用已在开发者后台启用 `im.message.receive_v1` 事件，并开通所需 IM 权限。
 
 ### 7. Pi / OpenCLI 透传
 
@@ -474,6 +498,7 @@ PI_AGENT_ARGS='--print --no-session'
 - 配置好 `.env` 文件，尤其是 `BOT_NAME`、白名单和当前 `--serve` 服务所需参数
 - 执行 `npm run test:analysis` 验证本地分析模块，执行 `node ./cli.js --help` 验证 CLI
 - 执行 `wb agent --im wechat --agent pi` 或 `wb start --serve <服务名>` 启动微信扫码
+- 执行 `wb agent --im lark --agent pi` 或 `wb lark agent --agent pi` 启动飞书事件回复
 
 也可以参考这条 [issue](https://github.com/wangrongding/wechat-bot/issues/54#issuecomment-1347880291)
 
