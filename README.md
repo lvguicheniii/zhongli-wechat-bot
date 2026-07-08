@@ -4,20 +4,22 @@ English | [Simplified Chinese](./README.zh-CN.md)
 
 A WeChat / IM agent project based on `Wechaty`.
 
-It can route IM messages received from WeChat QR-code login or Lark IM events to ChatGPT, DeepSeek, Ollama, Claude, Pi, and other services. It can also use OpenCLI `wx-cli` to access local WeChat chats, contacts, group members, favorites, and Moments cache, then run statistics or AI analysis for a group chat or a specific friend. Lark IM provides CLI channels for login, reading messages, searching messages, sending messages, and event-driven agent replies.
+It can route IM messages received from WeChat QR-code login, Lark IM events, Telegram Bot API polling, or WhatsApp Cloud API webhooks to ChatGPT, DeepSeek, Ollama, Claude, Pi, and other services. It can also use OpenCLI `wx-cli` to access local WeChat chats, contacts, group members, favorites, and Moments cache, then run statistics or AI analysis for a group chat or a specific friend.
 
-If you want to use Pi as the project agent and WeChat or Lark as the external communication channel, start with [Pi Agent + IM Guide](./docs/pi-im-agent.md).
+If you want to use Pi as the project agent and WeChat, Lark, Telegram, or WhatsApp as the external communication channel, start with [Pi Agent + IM Guide](./docs/pi-im-agent.md).
 
 ## Feature Overview
 
 | Feature | Command entry | Status |
 | --- | --- | --- |
 | WeChat QR-code IM | `wb agent --im wechat --agent pi` / `wb start --serve pi` | Available. Logs in by QR code and replies to allowlisted messages |
-| Pi as project agent | `wb agent --im wechat --agent pi` / `wb agent --im lark --agent pi` | Available. Single-turn non-interactive replies by default |
+| Pi as project agent | `wb agent --im wechat/lark/telegram/whatsapp --agent pi` | Available. Single-turn non-interactive replies by default |
 | Local WeChat chats / contacts / group members | `wb wx sessions`, `wb wx history`, `wb wx members` | Integrated through OpenCLI `wx-cli` |
 | Local Moments cache | `wb wx sns-feed`, `wb wx sns-search` | Integrated through OpenCLI `wx-cli` |
 | Group / friend analysis | `wb analyze --room "Group name"`, `wb analyze --friend "Friend alias"` | Supports local statistics and AI deep analysis |
 | Lark IM | `wb lark login`, `wb lark messages`, `wb lark send`, `wb lark agent` | Supports login, read, search, send, and event-driven auto-replies |
+| Telegram IM | `wb telegram agent`, `wb telegram send` | Supports Bot API long-polling receive and send |
+| WhatsApp IM | `wb whatsapp agent`, `wb whatsapp send` | Supports WhatsApp Cloud API webhook receive and send |
 | Multi-model replies | `--serve ChatGPT/deepseek/ollama/pi/...` | Reuses the existing provider mechanism |
 
 ## Quick Start: Pi + WeChat IM
@@ -86,7 +88,7 @@ If you want automatic WeChat replies or `wb analyze` deep analysis, choose a `--
 
 - pi
 
-  Pi is suitable as the project agent and can communicate through WeChat or Lark IM:
+  Pi is suitable as the project agent and can communicate through WeChat, Lark, Telegram, or WhatsApp IM:
 
   ```env
   PI_BIN='pi'
@@ -394,7 +396,73 @@ The Lark event path uses `lark-cli event consume im.message.receive_v1 --as bot`
 
 Before using event replies, make sure the Lark app has enabled the `im.message.receive_v1` event in the developer console and has the required IM scopes.
 
-### 7. Pi / OpenCLI Passthrough
+### 7. Telegram Bot API
+
+Telegram uses the official Bot API with long polling:
+
+```env
+TELEGRAM_BOT_TOKEN='123456:bot-token'
+TELEGRAM_AGENT_CHAT_TYPES='private,group,supergroup'
+TELEGRAM_AGENT_CHAT_WHITELIST=''
+TELEGRAM_AGENT_USER_WHITELIST=''
+TELEGRAM_AGENT_REPLY_PREFIX=''
+TELEGRAM_AGENT_GROUP_MENTION_NAME='@your_bot'
+TELEGRAM_AGENT_GROUP_AUTO_REPLY='false'
+```
+
+Start:
+
+```sh
+wb agent --im telegram --agent pi
+# or
+wb telegram agent --agent pi
+```
+
+Private chats are replied to by default unless you set a chat or user allowlist. Group and supergroup chats require a chat allowlist and one of these triggers: reply prefix, bot mention name, or `TELEGRAM_AGENT_GROUP_AUTO_REPLY=true`.
+
+You can send a test message with:
+
+```sh
+wb telegram send --chat-id 123456 --text "hello"
+```
+
+### 8. WhatsApp Cloud API
+
+WhatsApp uses the official Cloud API. Incoming messages are received through a webhook, so the local server must be reachable from Meta through a public HTTPS URL.
+
+```env
+WHATSAPP_ACCESS_TOKEN='your access token'
+WHATSAPP_PHONE_NUMBER_ID='your phone_number_id'
+WHATSAPP_VERIFY_TOKEN='your webhook verify token'
+WHATSAPP_GRAPH_API_VERSION='v23.0'
+WHATSAPP_WEBHOOK_PORT='3000'
+WHATSAPP_WEBHOOK_PATH='/webhook/whatsapp'
+WHATSAPP_AGENT_REPLY_PREFIX=''
+```
+
+Start the webhook server:
+
+```sh
+wb agent --im whatsapp --agent pi
+# or
+wb whatsapp agent --agent pi
+```
+
+Configure the webhook callback URL in Meta as:
+
+```text
+https://your-public-domain.example/webhook/whatsapp
+```
+
+Use the same `WHATSAPP_VERIFY_TOKEN` value in Meta's webhook verification form. WhatsApp replies only support inbound text messages by default.
+
+You can send a test message with:
+
+```sh
+wb whatsapp send --to 15551234567 --text "hello"
+```
+
+### 9. Pi / OpenCLI Passthrough
 
 ```sh
 wb pi -- --help
@@ -404,7 +472,7 @@ wb opencli -- --help
 wb opencli -- wx-cli help
 ```
 
-### 8. Tests
+### 10. Tests
 
 ```sh
 npm run test:analysis

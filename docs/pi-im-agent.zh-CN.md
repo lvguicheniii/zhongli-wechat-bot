@@ -13,9 +13,11 @@
 当前已实现：
 
 - 微信 IM：扫码登录后接收/回复消息。
-- Pi agent：作为 `serve` 类型处理微信和飞书消息。
+- Pi agent：作为 `serve` 类型处理微信、飞书、Telegram 和 WhatsApp 消息。
 - 本地微信数据：通过 OpenCLI `wx-cli` 访问聊天、群成员、统计和朋友圈缓存。
 - 飞书 IM：通过 `lark-cli` 登录、发消息、读消息、搜索消息和消费消息事件。
+- Telegram IM：通过 Bot API long polling 接收消息，并通过 Bot API 发送回复。
+- WhatsApp IM：通过 WhatsApp Cloud API webhook 接收消息，并通过 Cloud API 发送回复。
 
 ## 安装命令
 
@@ -182,6 +184,50 @@ wb lark agent --agent pi
 飞书 agent 通过 `lark-cli event consume` 消费 `im.message.receive_v1`。私聊默认回复；如果配置 chat 或 user 白名单，则只回复白名单。群聊需要配置 `LARK_AGENT_CHAT_WHITELIST`，并命中回复前缀、群提及名，或显式设置 `LARK_AGENT_GROUP_AUTO_REPLY=true`。
 
 使用这条链路前，需要在飞书开发者后台启用 `im.message.receive_v1` 事件，并确认应用已开通所需 IM 权限。
+
+## Telegram IM
+
+Telegram 使用 Bot API long polling：
+
+```env
+TELEGRAM_BOT_TOKEN='123456:bot-token'
+TELEGRAM_AGENT_CHAT_WHITELIST=''
+TELEGRAM_AGENT_USER_WHITELIST=''
+TELEGRAM_AGENT_REPLY_PREFIX=''
+TELEGRAM_AGENT_GROUP_MENTION_NAME='@your_bot'
+TELEGRAM_AGENT_GROUP_AUTO_REPLY='false'
+```
+
+启动：
+
+```sh
+wb agent --im telegram --agent pi
+wb telegram agent --agent pi
+```
+
+私聊默认回复。群聊需要配置 chat 白名单，并命中回复前缀、机器人提及名，或显式设置 `TELEGRAM_AGENT_GROUP_AUTO_REPLY=true`。
+
+## WhatsApp IM
+
+WhatsApp 使用官方 Cloud API，通过 webhook 接收消息：
+
+```env
+WHATSAPP_ACCESS_TOKEN='your access token'
+WHATSAPP_PHONE_NUMBER_ID='your phone_number_id'
+WHATSAPP_VERIFY_TOKEN='your webhook verify token'
+WHATSAPP_WEBHOOK_PORT='3000'
+WHATSAPP_WEBHOOK_PATH='/webhook/whatsapp'
+WHATSAPP_AGENT_REPLY_PREFIX=''
+```
+
+启动：
+
+```sh
+wb agent --im whatsapp --agent pi
+wb whatsapp agent --agent pi
+```
+
+在 Meta 后台把 webhook callback URL 配置为公开 HTTPS 地址，例如 `https://your-public-domain.example/webhook/whatsapp`，verify token 和 `WHATSAPP_VERIFY_TOKEN` 保持一致。
 
 ## Pi 透传命令
 

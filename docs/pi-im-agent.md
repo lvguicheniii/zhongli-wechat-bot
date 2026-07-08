@@ -13,9 +13,11 @@ External IM message -> wechat-bot -> Pi agent -> IM reply
 Currently implemented:
 
 - WeChat IM: receive and reply to messages after QR-code login.
-- Pi agent: handles WeChat and Lark messages as a `serve` type.
+- Pi agent: handles WeChat, Lark, Telegram, and WhatsApp messages as a `serve` type.
 - Local WeChat data: access chats, group members, statistics, and Moments cache through OpenCLI `wx-cli`.
 - Lark IM: login, send messages, read messages, search messages, and consume message events through `lark-cli`.
+- Telegram IM: receive messages through Bot API long polling and send replies through Bot API.
+- WhatsApp IM: receive messages through WhatsApp Cloud API webhooks and send replies through Cloud API.
 
 ## Installation Command
 
@@ -182,6 +184,50 @@ wb lark agent --agent pi
 The Lark agent consumes `im.message.receive_v1` through `lark-cli event consume`. Private chats are replied to by default unless a chat or user allowlist is configured. Group chats require `LARK_AGENT_CHAT_WHITELIST` and one of these triggers: reply prefix, group mention name, or `LARK_AGENT_GROUP_AUTO_REPLY=true`.
 
 Before using this path, enable the `im.message.receive_v1` event in the Lark developer console and make sure the app has the required IM scopes.
+
+## Telegram IM
+
+Telegram uses Bot API long polling:
+
+```env
+TELEGRAM_BOT_TOKEN='123456:bot-token'
+TELEGRAM_AGENT_CHAT_WHITELIST=''
+TELEGRAM_AGENT_USER_WHITELIST=''
+TELEGRAM_AGENT_REPLY_PREFIX=''
+TELEGRAM_AGENT_GROUP_MENTION_NAME='@your_bot'
+TELEGRAM_AGENT_GROUP_AUTO_REPLY='false'
+```
+
+Start:
+
+```sh
+wb agent --im telegram --agent pi
+wb telegram agent --agent pi
+```
+
+Private chats are replied to by default. Group chats require a chat allowlist and a trigger: reply prefix, bot mention name, or `TELEGRAM_AGENT_GROUP_AUTO_REPLY=true`.
+
+## WhatsApp IM
+
+WhatsApp uses the official Cloud API and receives inbound messages through a webhook:
+
+```env
+WHATSAPP_ACCESS_TOKEN='your access token'
+WHATSAPP_PHONE_NUMBER_ID='your phone_number_id'
+WHATSAPP_VERIFY_TOKEN='your webhook verify token'
+WHATSAPP_WEBHOOK_PORT='3000'
+WHATSAPP_WEBHOOK_PATH='/webhook/whatsapp'
+WHATSAPP_AGENT_REPLY_PREFIX=''
+```
+
+Start:
+
+```sh
+wb agent --im whatsapp --agent pi
+wb whatsapp agent --agent pi
+```
+
+Configure Meta's webhook callback URL to point to your public HTTPS endpoint, for example `https://your-public-domain.example/webhook/whatsapp`, and use the same verify token configured in `WHATSAPP_VERIFY_TOKEN`.
 
 ## Pi Passthrough Commands
 

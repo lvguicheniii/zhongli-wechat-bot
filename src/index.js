@@ -6,6 +6,8 @@ import { fileURLToPath } from 'url'
 import { env, getWechatRuntimeConfig } from './config/env.js'
 import { analyzeWechatMessages } from './analysis/wechatAnalyzer.js'
 import { larkListMessages, larkLogin, larkSearchMessages, larkSendText, larkStatus } from './adapters/lark.js'
+import { telegramSendText } from './adapters/telegram.js'
+import { whatsAppSendText } from './adapters/whatsapp.js'
 import { runOpenCli, runWxCli } from './adapters/opencli.js'
 import { runPi } from './adapters/pi.js'
 
@@ -61,6 +63,19 @@ function getMissingConfig(type) {
   }
 }
 
+function getMissingImConfig(channel) {
+  switch (channel) {
+    case 'telegram':
+      return env.TELEGRAM_BOT_TOKEN ? [] : ['TELEGRAM_BOT_TOKEN']
+    case 'whatsapp':
+      return env.WHATSAPP_ACCESS_TOKEN && env.WHATSAPP_PHONE_NUMBER_ID && env.WHATSAPP_VERIFY_TOKEN
+        ? []
+        : ['WHATSAPP_ACCESS_TOKEN', 'WHATSAPP_PHONE_NUMBER_ID', 'WHATSAPP_VERIFY_TOKEN']
+    default:
+      return []
+  }
+}
+
 async function startWechat(type) {
   const serviceType = type || env.SERVICE_TYPE
   if (!serveList.find((item) => item.value === serviceType)) {
@@ -95,6 +110,42 @@ async function startLark(type) {
   console.log('service type:', serviceType)
   const { startLarkAgent } = await import('./platforms/lark/agent.js')
   startLarkAgent({ serviceType })
+}
+
+async function startTelegram(type) {
+  const serviceType = type || env.SERVICE_TYPE || 'pi'
+  if (!serveList.find((item) => item.value === serviceType)) {
+    console.log('服务类型错误，目前支持：' + serveList.map((item) => item.value).join(' | '))
+    return
+  }
+
+  const missing = [...getMissingConfig(serviceType), ...getMissingImConfig('telegram')]
+  if (missing.length) {
+    console.log(`请先配置 .env 文件中的 ${missing.join('，')}`)
+    return
+  }
+
+  console.log('service type:', serviceType)
+  const { startTelegramAgent } = await import('./platforms/telegram/agent.js')
+  await startTelegramAgent({ serviceType })
+}
+
+async function startWhatsApp(type) {
+  const serviceType = type || env.SERVICE_TYPE || 'pi'
+  if (!serveList.find((item) => item.value === serviceType)) {
+    console.log('服务类型错误，目前支持：' + serveList.map((item) => item.value).join(' | '))
+    return
+  }
+
+  const missing = [...getMissingConfig(serviceType), ...getMissingImConfig('whatsapp')]
+  if (missing.length) {
+    console.log(`请先配置 .env 文件中的 ${missing.join('，')}`)
+    return
+  }
+
+  console.log('service type:', serviceType)
+  const { startWhatsAppAgent } = await import('./platforms/whatsapp/agent.js')
+  startWhatsAppAgent({ serviceType })
 }
 
 async function promptAndStart() {
@@ -151,7 +202,7 @@ program
 program
   .command('agent')
   .description('启动外部 IM 通道，并使用指定 agent 处理消息')
-  .option('--im <channel>', '外部通信渠道：wechat | lark', 'wechat')
+  .option('--im <channel>', '外部通信渠道：wechat | lark | telegram | whatsapp', 'wechat')
   .option('--agent <agent>', '消息处理 agent：pi 或其他 serve 类型', 'pi')
   .action(async (options) => {
     if (options.im === 'wechat') {
@@ -164,7 +215,17 @@ program
       return
     }
 
-    console.log('IM 通道错误，目前支持：wechat | lark')
+    if (options.im === 'telegram') {
+      await startTelegram(options.agent)
+      return
+    }
+
+    if (options.im === 'whatsapp') {
+      await startWhatsApp(options.agent)
+      return
+    }
+
+    console.log('IM 通道错误，目前支持：wechat | lark | telegram | whatsapp')
   })
 
 program
@@ -255,6 +316,44 @@ lark
   .option('--format <format>', 'json | pretty | table | ndjson | csv', 'pretty')
   .action(async (options) => {
     await larkSearchMessages(options)
+  })
+
+const telegram = program.command('telegram').description('Telegram Bot API 收发消息和 agent 通道')
+
+telegram
+  .command('agent')
+  .description('启动 Telegram Bot API long polling，并使用指定 agent 自动回复')
+  .option('--agent <agent>', '消息处理 agent：pi 或其他 serve 类型', 'pi')
+  .action(async (options) => {
+    await startTelegram(options.agent)
+  })
+
+telegram
+  .command('send')
+  .description('发送 Telegram 文本消息')
+  .requiredOption('--chat-id <chatId>', 'Telegram chat_id')
+  .requiredOption('--text <text>', '文本内容')
+  .action(async (options) => {
+    await telegramSendText(options)
+  })
+
+const whatsapp = program.command('whatsapp').description('WhatsApp Cloud API 收发消息和 webhook agent 通道')
+
+whatsapp
+  .command('agent')
+  .description('启动 WhatsApp Cloud API webhook，并使用指定 agent 自动回复')
+  .option('--agent <agent>', '消息处理 agent：pi 或其他 serve 类型', 'pi')
+  .action(async (options) => {
+    await startWhatsApp(options.agent)
+  })
+
+whatsapp
+  .command('send')
+  .description('发送 WhatsApp Cloud API 文本消息')
+  .requiredOption('--to <phone>', '收件人 WhatsApp ID 或手机号')
+  .requiredOption('--text <text>', '文本内容')
+  .action(async (options) => {
+    await whatsAppSendText(options)
   })
 
 program

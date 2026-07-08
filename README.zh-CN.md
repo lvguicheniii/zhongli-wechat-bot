@@ -4,20 +4,22 @@
 
 一个基于 `Wechaty` 的微信 / IM agent 项目。
 
-它可以把微信扫码登录或飞书 IM 事件收到的消息交给 ChatGPT、DeepSeek、Ollama、Claude、Pi 等服务处理；也可以通过 OpenCLI 的 `wx-cli` 访问本机微信聊天、联系人、群成员、收藏、朋友圈缓存，并对群聊或某个好友做统计和分析。飞书 IM 提供登录、读消息、搜消息、发消息和事件驱动 agent 回复通道。
+它可以把微信扫码登录、飞书 IM 事件、Telegram Bot API 轮询或 WhatsApp Cloud API webhook 收到的消息交给 ChatGPT、DeepSeek、Ollama、Claude、Pi 等服务处理；也可以通过 OpenCLI 的 `wx-cli` 访问本机微信聊天、联系人、群成员、收藏、朋友圈缓存，并对群聊或某个好友做统计和分析。
 
-如果你希望把 Pi 作为本项目的 agent，用微信或飞书作为外部通信渠道，直接看：[Pi Agent + IM 使用说明](./docs/pi-im-agent.zh-CN.md)。
+如果你希望把 Pi 作为本项目的 agent，用微信、飞书、Telegram 或 WhatsApp 作为外部通信渠道，直接看：[Pi Agent + IM 使用说明](./docs/pi-im-agent.zh-CN.md)。
 
 ## 能力概览
 
 | 能力                           | 命令入口                                                             | 当前状态                               |
 | ------------------------------ | -------------------------------------------------------------------- | -------------------------------------- |
 | 微信扫码 IM                    | `wb agent --im wechat --agent pi` / `wb start --serve pi`            | 已接入，可扫码登录并回复白名单消息     |
-| Pi 作为项目 agent              | `wb agent --im wechat --agent pi` / `wb agent --im lark --agent pi`  | 已接入，默认单轮非交互回复             |
+| Pi 作为项目 agent              | `wb agent --im wechat/lark/telegram/whatsapp --agent pi`             | 已接入，默认单轮非交互回复             |
 | 本地微信聊天 / 联系人 / 群成员 | `wb wx sessions`、`wb wx history`、`wb wx members`                   | 通过 OpenCLI `wx-cli` 接入             |
 | 本地朋友圈缓存                 | `wb wx sns-feed`、`wb wx sns-search`                                 | 通过 OpenCLI `wx-cli` 接入             |
 | 群 / 好友分析                  | `wb analyze --room "群名"`、`wb analyze --friend "好友备注"`         | 支持本地统计和 AI 深度分析             |
 | 飞书 IM                        | `wb lark login`、`wb lark messages`、`wb lark send`、`wb lark agent` | 支持登录、读、搜、发和事件驱动自动回复 |
+| Telegram IM                    | `wb telegram agent`、`wb telegram send`                              | 支持 Bot API 轮询接收和发送            |
+| WhatsApp IM                    | `wb whatsapp agent`、`wb whatsapp send`                              | 支持 WhatsApp Cloud API webhook 收发   |
 | 多模型回复                     | `--serve ChatGPT/deepseek/ollama/pi/...`                             | 复用现有 provider 机制                 |
 
 ## 快速开始：Pi + 微信 IM
@@ -84,7 +86,7 @@ wb agent --im wechat --agent pi
 
 - pi
 
-  Pi 适合作为项目 agent 使用，可通过微信或飞书 IM 对外通信：
+  Pi 适合作为项目 agent 使用，可通过微信、飞书、Telegram 或 WhatsApp IM 对外通信：
 
   ```env
   PI_BIN='pi'
@@ -393,7 +395,73 @@ wb lark agent --agent pi
 
 使用事件回复前，请确认飞书应用已在开发者后台启用 `im.message.receive_v1` 事件，并开通所需 IM 权限。
 
-### 7. Pi / OpenCLI 透传
+### 7. Telegram Bot API
+
+Telegram 使用官方 Bot API long polling：
+
+```env
+TELEGRAM_BOT_TOKEN='123456:bot-token'
+TELEGRAM_AGENT_CHAT_TYPES='private,group,supergroup'
+TELEGRAM_AGENT_CHAT_WHITELIST=''
+TELEGRAM_AGENT_USER_WHITELIST=''
+TELEGRAM_AGENT_REPLY_PREFIX=''
+TELEGRAM_AGENT_GROUP_MENTION_NAME='@your_bot'
+TELEGRAM_AGENT_GROUP_AUTO_REPLY='false'
+```
+
+启动：
+
+```sh
+wb agent --im telegram --agent pi
+# 或
+wb telegram agent --agent pi
+```
+
+私聊默认回复；如果配置了 chat 或 user 白名单，则只回复白名单。群聊和超级群需要配置 chat 白名单，并命中回复前缀、机器人提及名，或显式设置 `TELEGRAM_AGENT_GROUP_AUTO_REPLY=true`。
+
+可以发送测试消息：
+
+```sh
+wb telegram send --chat-id 123456 --text "hello"
+```
+
+### 8. WhatsApp Cloud API
+
+WhatsApp 使用官方 Cloud API。接收消息需要 webhook，所以本地服务必须通过公开 HTTPS URL 暴露给 Meta。
+
+```env
+WHATSAPP_ACCESS_TOKEN='your access token'
+WHATSAPP_PHONE_NUMBER_ID='your phone_number_id'
+WHATSAPP_VERIFY_TOKEN='your webhook verify token'
+WHATSAPP_GRAPH_API_VERSION='v23.0'
+WHATSAPP_WEBHOOK_PORT='3000'
+WHATSAPP_WEBHOOK_PATH='/webhook/whatsapp'
+WHATSAPP_AGENT_REPLY_PREFIX=''
+```
+
+启动 webhook server：
+
+```sh
+wb agent --im whatsapp --agent pi
+# 或
+wb whatsapp agent --agent pi
+```
+
+在 Meta 后台配置 webhook callback URL：
+
+```text
+https://your-public-domain.example/webhook/whatsapp
+```
+
+Meta webhook 验证表单里的 verify token 要和 `WHATSAPP_VERIFY_TOKEN` 保持一致。WhatsApp 默认只回复收到的文本消息。
+
+可以发送测试消息：
+
+```sh
+wb whatsapp send --to 15551234567 --text "hello"
+```
+
+### 9. Pi / OpenCLI 透传
 
 ```sh
 wb pi -- --help
@@ -403,7 +471,7 @@ wb opencli -- --help
 wb opencli -- wx-cli help
 ```
 
-### 8. 测试
+### 10. 测试
 
 ```sh
 npm run test:analysis

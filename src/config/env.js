@@ -52,6 +52,44 @@ export function getLarkRuntimeConfig() {
   }
 }
 
+export function getTelegramRuntimeConfig() {
+  return {
+    botToken: env.TELEGRAM_BOT_TOKEN || '',
+    apiBaseUrl: env.TELEGRAM_API_BASE_URL || 'https://api.telegram.org',
+    agentChatTypes: readCsvEnvOrDefault('TELEGRAM_AGENT_CHAT_TYPES', ['private', 'group', 'supergroup']),
+    agentChatWhiteList: readCsvEnv('TELEGRAM_AGENT_CHAT_WHITELIST'),
+    agentUserWhiteList: readCsvEnv('TELEGRAM_AGENT_USER_WHITELIST'),
+    agentIgnoreUserIds: readCsvEnv('TELEGRAM_AGENT_IGNORE_USER_IDS'),
+    agentReplyPrefix: env.TELEGRAM_AGENT_REPLY_PREFIX || '',
+    agentGroupMentionName: env.TELEGRAM_AGENT_GROUP_MENTION_NAME || '',
+    agentGroupAutoReply: env.TELEGRAM_AGENT_GROUP_AUTO_REPLY === 'true',
+    pollTimeout: Number(env.TELEGRAM_POLL_TIMEOUT || 30),
+    pollIntervalMs: Number(env.TELEGRAM_POLL_INTERVAL_MS || 1000),
+    dataDir: env.TELEGRAM_DATA_DIR || '.data/telegram',
+    storeMessages: env.TELEGRAM_STORE_MESSAGES !== 'false',
+  }
+}
+
+export function getWhatsAppRuntimeConfig() {
+  return {
+    accessToken: env.WHATSAPP_ACCESS_TOKEN || '',
+    phoneNumberId: env.WHATSAPP_PHONE_NUMBER_ID || '',
+    verifyToken: env.WHATSAPP_VERIFY_TOKEN || '',
+    graphApiVersion: env.WHATSAPP_GRAPH_API_VERSION || 'v23.0',
+    apiBaseUrl: env.WHATSAPP_API_BASE_URL || 'https://graph.facebook.com',
+    webhookHost: env.WHATSAPP_WEBHOOK_HOST || '0.0.0.0',
+    webhookPort: Number(env.WHATSAPP_WEBHOOK_PORT || 3000),
+    webhookPath: env.WHATSAPP_WEBHOOK_PATH || '/webhook/whatsapp',
+    agentMessageTypes: readCsvEnvOrDefault('WHATSAPP_AGENT_MESSAGE_TYPES', ['text']),
+    agentUserWhiteList: readCsvEnv('WHATSAPP_AGENT_USER_WHITELIST'),
+    agentIgnoreUserIds: readCsvEnv('WHATSAPP_AGENT_IGNORE_USER_IDS'),
+    agentReplyPrefix: env.WHATSAPP_AGENT_REPLY_PREFIX || '',
+    dataDir: env.WHATSAPP_DATA_DIR || '.data/whatsapp',
+    storeMessages: env.WHATSAPP_STORE_MESSAGES !== 'false',
+    dedupSize: Number(env.WHATSAPP_AGENT_DEDUP_SIZE || 500),
+  }
+}
+
 export function getOpenCliRuntimeConfig() {
   return {
     bin: env.OPENCLI_BIN || '',
