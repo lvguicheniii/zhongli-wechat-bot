@@ -11,9 +11,6 @@
     "test": "node ./src/wechaty/testMessage.js",
     "test:analysis": "node ./src/analysis/__test__.js",
     "lark:login": "node ./cli.js lark login",
-    "lark:agent": "node ./cli.js lark agent --agent pi",
-    "telegram:agent": "node ./cli.js telegram agent --agent pi",
-    "whatsapp:agent": "node ./cli.js whatsapp agent --agent pi",
     "wechat:analyze": "node ./cli.js analyze --stats-only",
     "agent": "node ./cli.js agent --im wechat --agent pi",
     "opencli": "node ./cli.js opencli",
@@ -38,8 +35,6 @@
     "./Dockerfile.alpine",
     "./LICENSE.md",
     "./README.md",
-    "./README.zh-CN.md",
-    "./docs",
     "./RECORD.md"
   ],
   "bin": {

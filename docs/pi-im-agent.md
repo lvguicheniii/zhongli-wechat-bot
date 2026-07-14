@@ -1,52 +1,48 @@
-# Pi Agent + IM Guide
+# Pi Agent + IM 使用说明
 
-English | [Simplified Chinese](./pi-im-agent.zh-CN.md)
+这份文档说明如何把当前项目作为 Pi agent 的运行壳，用 IM 作为外部通信渠道。
 
-This document explains how to use this project as a runtime shell for a Pi agent, with IM as the external communication channel.
-
-## Target Pipeline
+## 目标链路
 
 ```text
-External IM message -> wechat-bot -> Pi agent -> IM reply
+外部 IM 消息 -> wechat-bot -> Pi agent -> IM 回复
 ```
 
-Currently implemented:
+当前已实现：
 
-- WeChat IM: receive and reply to messages after QR-code login.
-- Pi agent: handles WeChat, Lark, Telegram, and WhatsApp messages as a `serve` type.
-- Local WeChat data: access chats, group members, statistics, and Moments cache through OpenCLI `wx-cli`.
-- Lark IM: login, send messages, read messages, search messages, and consume message events through `lark-cli`.
-- Telegram IM: receive messages through Bot API long polling and send replies through Bot API.
-- WhatsApp IM: receive messages through WhatsApp Cloud API webhooks and send replies through Cloud API.
+- 微信 IM：扫码登录后接收/回复消息。
+- Pi agent：作为 `serve` 类型处理微信消息。
+- 本地微信数据：通过 OpenCLI `wx-cli` 访问聊天、群成员、统计和朋友圈缓存。
+- 飞书 IM：通过 `lark-cli` 登录、发消息、读消息、搜索消息。
 
-## Installation Command
+## 安装命令
 
-If you want to use the `wb` command directly, run this in the project root:
+如果希望直接使用 `wb` 命令，在项目根目录执行：
 
 ```sh
 npm link
 ```
 
-You can also skip `wb` and use:
+也可以不用 `wb`，直接使用：
 
 ```sh
 npm run start -- <command>
 ```
 
-## Environment Configuration
+## 环境配置
 
-Copy and edit `.env`:
+复制并编辑 `.env`：
 
 ```sh
 cp .env.example .env
 ```
 
-Recommended WeChat + Pi configuration:
+微信 + Pi 推荐配置：
 
 ```env
-BOT_NAME='@Your WeChat nickname'
-ALIAS_WHITELIST='Friend alias allowed for private chat'
-ROOM_WHITELIST='Group name allowed for access'
+BOT_NAME='@你的微信昵称'
+ALIAS_WHITELIST='允许私聊你的好友备注'
+ROOM_WHITELIST='允许接入的群名'
 AUTO_REPLY_PREFIX=''
 
 WECHAT_DATA_DIR='.data/wechat'
@@ -57,67 +53,67 @@ PI_NPM_PACKAGE='@earendil-works/pi-coding-agent'
 PI_AGENT_ARGS='--print --no-session'
 ```
 
-If your machine does not have a global `pi` command, leave it empty:
+如果本机没有全局 `pi` 命令，可以先留空：
 
 ```env
 PI_BIN=''
 ```
 
-The project will start Pi through `npx --yes @earendil-works/pi-coding-agent`, but each cold start will be slower.
+项目会通过 `npx --yes @earendil-works/pi-coding-agent` 调起 Pi，但每次冷启动会慢一些。
 
-## Connect Pi Through WeChat QR-code Login
+## 微信扫码接入 Pi
 
-Recommended command:
+推荐命令：
 
 ```sh
 wb agent --im wechat --agent pi
 ```
 
-Equivalent command:
+等价命令：
 
 ```sh
 wb start --serve pi
 ```
 
-Or use npm:
+或使用 npm：
 
 ```sh
 npm run agent
 npm run start -- start --serve pi
 ```
 
-After startup, the terminal shows a WeChat QR code. Once login succeeds, the pipeline is:
+启动后终端会展示微信二维码。扫码登录成功后，链路如下：
 
 ```text
-WeChat QR-code login -> Wechaty receives message -> local JSONL capture -> Pi single-turn agent reply -> WeChat IM sends reply
+微信扫码登录 -> Wechaty 收消息 -> 本地 JSONL 捕获 -> Pi 单轮 agent 回复 -> 微信 IM 发回
 ```
 
-Trigger rules:
+触发规则：
 
-- Private chats: the sender must be in `ALIAS_WHITELIST`.
-- Group chats: the group name must be in `ROOM_WHITELIST`, and the message must mention `@bot nickname`.
-- Non-text messages are not sent to the Pi reply pipeline.
+- 私聊：发消息人必须在 `ALIAS_WHITELIST` 中。
+- 群聊：群名必须在 `ROOM_WHITELIST` 中，并且消息里需要 `@机器人昵称`。
+- 非文本消息不会进入 Pi 回复链路。
 
-## Built-in WeChat Analysis Commands
+## 微信内置分析命令
 
-You can send commands directly in WeChat chats:
+微信聊天中可以直接发命令：
 
 ```text
-/stats group GroupName
-/analyze group GroupName
-/stats friend FriendAlias
-/analyze friend FriendAlias
+/统计 群 XX群1
+/分析 群 XX群1
+/统计 好友 好友备注
+/分析 好友 好友备注
 ```
 
-Notes:
+说明：
 
-- `/stats` only reads local JSONL and does not call AI.
-- `/analyze` calls the current agent or AI service and sends recent message samples to the model.
-- For private chats, prefer a local model or local Pi configuration.
+- `/统计` 只读取本地 JSONL，不调用 AI。
+- `/分析` 会调用当前 agent 或 AI 服务，并把最近消息样本发给模型。
+- 隐私聊天建议优先使用本地模型或本地 Pi 配置。
 
-## Local WeChat Data and Moments
+## 本地微信数据与朋友圈
 
-OpenCLI `wx-cli` can access local WeChat cache data:
+OpenCLI 的 `wx-cli` 可访问本机微信缓存数据：
 
 ```sh
 wb wx init
@@ -133,159 +129,91 @@ wb wx sns-search
 wb wx sns-notifications
 ```
 
-Run this first before initial use:
+首次使用先执行：
 
 ```sh
 wb wx init
 ```
 
-View the full command list supported by `wx-cli`:
+查看 `wx-cli` 支持的完整命令：
 
 ```sh
 wb wx help
 ```
 
-## Lark IM
+## 飞书 IM
 
-Lark can log in, read and write messages, search messages, and run an event-based agent:
+飞书当前是 CLI 控制通道，可登录、读写和搜索消息：
 
 ```sh
 wb lark login --no-wait
 wb lark status
 wb lark messages --chat-id oc_xxx
-wb lark search --query "keyword"
+wb lark search --query "关键词"
 wb lark send --chat-id oc_xxx --text "hello"
 ```
 
-`--no-wait` returns a device-flow authorization link / QR-code information. After you complete authorization, run the read/write commands.
+`--no-wait` 会返回 device-flow 授权链接/扫码信息。你完成授权后，再运行读写命令。
 
-To let Pi reply to Lark messages, configure the event agent:
+当前飞书还不是实时事件通道；也就是说，飞书消息不会自动推给 Pi 回复。后续要实现飞书实时 agent，需要接入 Lark event consume，再把收到的消息转给 Pi。
 
-```env
-LARK_AGENT_IDENTITY='bot'
-LARK_AGENT_EVENT_KEY='im.message.receive_v1'
-LARK_AGENT_CHAT_TYPES='p2p,group'
-LARK_AGENT_MESSAGE_TYPES='text,post'
-LARK_AGENT_CHAT_WHITELIST=''
-LARK_AGENT_USER_WHITELIST=''
-LARK_AGENT_REPLY_PREFIX=''
-LARK_AGENT_GROUP_MENTION_NAME=''
-LARK_AGENT_GROUP_AUTO_REPLY='false'
-```
+## Pi 透传命令
 
-Start:
-
-```sh
-wb agent --im lark --agent pi
-# or
-wb lark agent --agent pi
-```
-
-The Lark agent consumes `im.message.receive_v1` through `lark-cli event consume`. Private chats are replied to by default unless a chat or user allowlist is configured. Group chats require `LARK_AGENT_CHAT_WHITELIST` and one of these triggers: reply prefix, group mention name, or `LARK_AGENT_GROUP_AUTO_REPLY=true`.
-
-Before using this path, enable the `im.message.receive_v1` event in the Lark developer console and make sure the app has the required IM scopes.
-
-## Telegram IM
-
-Telegram uses Bot API long polling:
-
-```env
-TELEGRAM_BOT_TOKEN='123456:bot-token'
-TELEGRAM_AGENT_CHAT_WHITELIST=''
-TELEGRAM_AGENT_USER_WHITELIST=''
-TELEGRAM_AGENT_REPLY_PREFIX=''
-TELEGRAM_AGENT_GROUP_MENTION_NAME='@your_bot'
-TELEGRAM_AGENT_GROUP_AUTO_REPLY='false'
-```
-
-Start:
-
-```sh
-wb agent --im telegram --agent pi
-wb telegram agent --agent pi
-```
-
-Private chats are replied to by default. Group chats require a chat allowlist and a trigger: reply prefix, bot mention name, or `TELEGRAM_AGENT_GROUP_AUTO_REPLY=true`.
-
-## WhatsApp IM
-
-WhatsApp uses the official Cloud API and receives inbound messages through a webhook:
-
-```env
-WHATSAPP_ACCESS_TOKEN='your access token'
-WHATSAPP_PHONE_NUMBER_ID='your phone_number_id'
-WHATSAPP_VERIFY_TOKEN='your webhook verify token'
-WHATSAPP_WEBHOOK_PORT='3000'
-WHATSAPP_WEBHOOK_PATH='/webhook/whatsapp'
-WHATSAPP_AGENT_REPLY_PREFIX=''
-```
-
-Start:
-
-```sh
-wb agent --im whatsapp --agent pi
-wb whatsapp agent --agent pi
-```
-
-Configure Meta's webhook callback URL to point to your public HTTPS endpoint, for example `https://your-public-domain.example/webhook/whatsapp`, and use the same verify token configured in `WHATSAPP_VERIFY_TOKEN`.
-
-## Pi Passthrough Commands
-
-Call Pi directly:
+直接调用 Pi：
 
 ```sh
 wb pi -- --help
-wb pi -- --print "Analyze the current project structure"
+wb pi -- --print "分析当前项目结构"
 ```
 
-`PI_AGENT_ARGS` controls the arguments used when Pi runs as the IM reply agent. Default:
+`PI_AGENT_ARGS` 控制 Pi 作为 IM 回复 agent 时的参数。默认：
 
 ```env
 PI_AGENT_ARGS='--print --no-session'
 ```
 
-This means each IM message is handled as a single-turn non-interactive reply. If you want to reuse a session, remove `--no-session`, but note that context and private data may be saved in the Pi session.
+这表示每条 IM 消息都是单轮非交互回复。如果希望沿用会话，可以去掉 `--no-session`，但要注意上下文和隐私数据会被 Pi session 保存。
 
-## FAQ
+## 常见问题
 
-### No reply after QR-code login
+### 扫码后没有回复
 
-Check:
+检查：
 
-- Whether the private chat sender alias is in `ALIAS_WHITELIST`.
-- Whether the group name is in `ROOM_WHITELIST`.
-- Whether the group chat really mentioned `BOT_NAME`.
-- Whether `BOT_NAME` in `.env` has the form `@Your WeChat nickname`.
-- Whether the current message is a text message.
+- 私聊好友备注是否在 `ALIAS_WHITELIST`。
+- 群名是否在 `ROOM_WHITELIST`。
+- 群聊是否真的 `@` 了 `BOT_NAME`。
+- `.env` 中 `BOT_NAME` 是否形如 `@你的微信昵称`。
+- 当前消息是否为文本消息。
 
-### Pi replies slowly
+### Pi 回复慢
 
-Configure local Pi:
+建议配置本机 Pi：
 
 ```env
 PI_BIN='pi'
 ```
 
-If this is left empty, the project starts Pi through `npx`. First runs and cold starts will be slower.
+如果留空，项目会通过 `npx` 调起 Pi，首次执行和冷启动都会更慢。
 
-### Analyze only, without auto-reply
+### 如何只分析，不自动回复
 
-Use command-line analysis:
-
-```sh
-wb analyze --room "Group name" --stats-only
-wb analyze --friend "Friend alias" --stats-only
-```
-
-Or call AI for deep analysis:
+使用命令行：
 
 ```sh
-wb analyze --room "Group name" --serve pi
+wb analyze --room "群名" --stats-only
+wb analyze --friend "好友备注" --stats-only
 ```
 
-### Safety Boundary
+或调用 AI 深度分析：
 
-- The project only processes data visible to the locally logged-in account.
-- WeChat auto-reply is controlled by allowlists.
-- OpenCLI remote execution is disabled by default.
-- `/analyze` sends message samples to the current model or agent. Confirm where the model runs and how it is configured before processing private data.
+```sh
+wb analyze --room "群名" --serve pi
+```
+
+### 安全边界
+
+- 项目只处理本机已登录账号可见的数据。
+- 微信自动回复受白名单控制。
+- OpenCLI 远程执行默认关闭。
+- `/分析` 会把消息样本交给当前模型或 agent，处理隐私数据前请确认模型运行位置和配置。
